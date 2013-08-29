@@ -103,8 +103,6 @@ class Command(NoArgsCommand):
                 raise
 
         if CUMULUS["USE_PYRAX"]:
-            if CUMULUS["PYRAX_IDENTITY_TYPE"]:
-                pyrax.set_setting("identity_type", CUMULUS["PYRAX_IDENTITY_TYPE"])
             public = not CUMULUS["SERVICENET"]
             if CUMULUS["PYRAX_IDENTITY_TYPE"]:
                 pyrax.set_setting("identity_type", CUMULUS["PYRAX_IDENTITY_TYPE"])
