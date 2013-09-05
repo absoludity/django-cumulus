@@ -161,9 +161,7 @@ class SwiftclientStorage(Storage):
         """
         Helper function to retrieve the requested Object.
         """
-        if name not in self.container.get_object_names():
-            return False
-        else:
+        if self.exists(name):
             return self.container.get_object(name)
 
     def _open(self, name, mode="rb"):
@@ -230,7 +228,7 @@ class SwiftclientStorage(Storage):
         exists in the storage system, or False if the name is
         available for a new file.
         """
-        return bool(self._get_object(name))
+        return name in self.container.get_object_names()
 
     def size(self, name):
         """
@@ -341,7 +339,7 @@ class SwiftclientStorageFile(File):
         """
         Reads specified chunk_size or the whole file if chunk_size is None.
 
-        If reading the whole file and the content-encoding is gzip, also 
+        If reading the whole file and the content-encoding is gzip, also
         gunzip the read content.
         """
         if self._pos == self._get_size() or chunk_size == 0:
