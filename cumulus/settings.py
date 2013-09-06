@@ -9,6 +9,7 @@ CUMULUS = {
     "AUTH_VERSION": "1.0",
     "AUTH_TENANT_NAME": None,
     "REGION": "DFW",
+    "CACHE_TIMEOUT": 30,
     "CNAMES": None,
     "CONTAINER": None,
     "CONTAINER_URI": None,

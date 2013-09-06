@@ -3,6 +3,7 @@ import re
 import swiftclient
 from datetime import datetime
 
+from django.core.cache import cache
 from django.core.files.base import File
 from django.core.files.storage import Storage
 
@@ -179,7 +180,6 @@ class SwiftclientStorage(Storage):
             if content_encoding == "gzip":
                 content = gzip_content(content)
             data = content.read()
-            print 'Saved: {0} ({1})'.format(get_digest(data), name)
             self.connection.store_object(container=self.container_name,
                                          obj_name=name,
                                          data=data,
@@ -233,7 +233,9 @@ class SwiftclientStorage(Storage):
         specified by name.
         """
         mtime = self._get_object(name).last_modified
-        return datetime.strptime(mtime, '%Y-%m-%dT%H:%M:%S')
+        if len(mtime) == 19:
+            return datetime.strptime(mtime, '%Y-%m-%dT%H:%M:%S')
+        return datetime.strptime(mtime, '%Y-%m-%dT%H:%M:%S.%f')
 
     def url(self, name):
         """
@@ -281,20 +283,6 @@ class SwiftclientStorage(Storage):
         dirs = list(dirs)
         dirs.sort()
         return (dirs, files)
-
-
-class SwiftclientStaticStorage(SwiftclientStorage):
-    """
-    Subclasses SwiftclientStorage to automatically set the container
-    to the one specified in CUMULUS["STATIC_CONTAINER"]. This provides
-    the ability to specify a separate storage backend for Django's
-    collectstatic command.
-
-    To use, make sure CUMULUS["STATIC_CONTAINER"] is set to something other
-    than CUMULUS["CONTAINER"]. Then, tell Django's staticfiles app by setting
-    STATICFILES_STORAGE = "cumulus.storage.SwiftclientStaticStorage".
-    """
-    container_name = CUMULUS["STATIC_CONTAINER"]
 
 
 class SwiftclientStorageFile(File):
@@ -378,9 +366,22 @@ class SwiftclientStorageFile(File):
         self._pos = pos
 
 
-class ThreadSafeSwiftclientStorage(SwiftclientStorage):
+class StaticfilesMixin(object):
     """
-    Extends SwiftclientStorage to make it mostly thread safe.
+    A mixin to automatically set the container to the one specified in
+    CUMULUS["STATIC_CONTAINER"]. This provides the ability to specify a
+    separate storage backend for Django's collectstatic command.
+
+    To use, make sure CUMULUS["STATIC_CONTAINER"] is set to something other
+    than CUMULUS["CONTAINER"]. Then, tell Django's staticfiles app by setting
+    STATICFILES_STORAGE = "cumulus.storage.SwiftclientStaticStorage".
+    """
+    container_name = CUMULUS["STATIC_CONTAINER"]
+
+
+class ThreadSafeMixin(object):
+    """
+    Extends SwiftclientStorage or a subclass to make it mostly thread safe.
 
     As long as you do not pass container or cloud objects between
     threads, you will be thread safe.
@@ -388,27 +389,111 @@ class ThreadSafeSwiftclientStorage(SwiftclientStorage):
     Uses one connection/container per thread.
     """
     def __init__(self, *args, **kwargs):
-        super(ThreadSafeSwiftclientStorage, self).__init__(*args, **kwargs)
+        super(ThreadSafeMixin, self).__init__(*args, **kwargs)
 
         import threading
-        self.local_cache = threading.local()
+        self._local_cache = threading.local()
 
     def _get_connection(self):
-        if not hasattr(self.local_cache, "connection"):
+        if not hasattr(self._local_cache, "connection"):
             public = not self.use_snet  # invert
             connection = pyrax.connect_to_cloudfiles(region=self.region,
                                                      public=public)
-            self.local_cache.connection = connection
+            self._local_cache.connection = connection
 
-        return self.local_cache.connection
+        return self._local_cache.connection
 
     connection = property(_get_connection, SwiftclientStorage._set_connection)
 
     def _get_container(self):
-        if not hasattr(self.local_cache, "container"):
+        if not hasattr(self._local_cache, "container"):
             container = self.connection.create_container(self.container_name)
-            self.local_cache.container = container
+            self._local_cache.container = container
 
-        return self.local_cache.container
+        return self._local_cache.container
 
     container = property(_get_container, SwiftclientStorage._set_container)
+
+
+class CachingMixin(object):
+    """
+    A mixin to add some caching to the storage backend. Currently, only the
+    ``exists`` method is cached. Also, the in-memory bulk_cache is provided
+    mainly for use in the collectstatic command to get all of the metadata at
+    once.
+    """
+    cache_timeout = CUMULUS["CACHE_TIMEOUT"]
+
+    def _enable_bulk_cache(self):
+        """
+        Enable the bulk cache, using the threadlocal if available. Retrieve the
+        objects to fill the cache.
+        """
+        objs = {obj.name: obj for obj in self.container.get_objects(full_listing=True)}
+
+        if hasattr(self, '_local_cache'):
+            self._bulk_cache = self._local_cache.bulk_cache = objs
+        else:
+            self._bulk_cache = objs
+
+    def _disable_bulk_cache(self):
+        """
+        Disable the bulk cache, using the threadlocal if available.
+        """
+        if hasattr(self, '_local_cache'):
+            del self._local_cache.bulk_cache
+        del self._bulk_cache
+
+    def _bulk_cache_is_enabled(self):
+        """
+        Check whether the bulk cache is enabled, using the threadlocal if
+        available.
+        """
+        if hasattr(self, '_bulk_cache'):
+            return True
+
+    def _get_object(self, name):
+        """
+        Helper function to retrieve the requested Object. If bulk_cache is
+        True, check for the object in the bulk metadata cache.
+        """
+        if self.exists(name):
+            if self._bulk_cache_is_enabled():
+                return self._bulk_cache[name]
+            return self.container.get_object(name)
+
+    def exists(self, name):
+        """
+        Cache the results of get_object_names.
+        """
+        if self._bulk_cache_is_enabled():
+            return name in self._bulk_cache
+        return name in self.container.get_object_names()
+
+    """
+    Invalidation
+    """
+
+    def _save(self, name, content):
+        """
+        A save refreshes the bulk_cache.
+        """
+        if self._bulk_cache_is_enabled():
+            self._enable_bulk_cache()
+        return super(CachingMixin, self)._save(name, content)
+
+    def delete(self, name):
+        """
+        A delete refreshes the bulk_cache.
+        """
+        if self._bulk_cache_is_enabled():
+            self._enable_bulk_cache()
+        return super(CachingMixin, self).delete(name)
+
+    def _set_container(self, container):
+        """
+        A container switch invalidates the bulk_cache.
+        """
+        if self._bulk_cache_is_enabled():
+            self._enable_bulk_cache()
+        return super(CachingMixin, self)._set_container(container)
