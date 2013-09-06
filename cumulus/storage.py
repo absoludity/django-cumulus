@@ -1,14 +1,14 @@
-import mimetypes
 import pyrax
 import re
 import swiftclient
-from gzip import GzipFile
-from StringIO import StringIO
+from datetime import datetime
 
-from django.core.files.base import File, ContentFile
+from django.core.files.base import File
 from django.core.files.storage import Storage
 
 from cumulus.settings import CUMULUS
+from cumulus.utils import (get_digest, gzip_content, read_gzipped_content,
+                           get_content_type)
 
 
 HEADER_PATTERNS = tuple((re.compile(p), h) for p, h in CUMULUS.get("HEADERS", {}))
@@ -35,17 +35,6 @@ def sync_headers(cloud_obj, headers={}, header_patterns=HEADER_PATTERNS):
     if matched_headers != cloud_obj.headers:
         cloud_obj.headers = matched_headers
         cloud_obj.sync_metadata()
-
-
-def get_gzipped_contents(input_file):
-    """
-    Returns a gzipped version of a previously opened file's buffer.
-    """
-    zbuf = StringIO()
-    zfile = GzipFile(mode="wb", compresslevel=6, fileobj=zbuf)
-    zfile.write(input_file.read())
-    zfile.close()
-    return ContentFile(zbuf.getvalue())
 
 
 class SwiftclientStorage(Storage):
@@ -175,13 +164,7 @@ class SwiftclientStorage(Storage):
         Uses the Swiftclient service to write ``content`` to a remote
         file (called ``name``).
         """
-        # Checks if the content_type is already set.
-        # Otherwise uses the mimetypes library to guess.
-        if hasattr(content.file, "content_type"):
-            content_type = content.file.content_type
-        else:
-            mime_type, encoding = mimetypes.guess_type(name)
-            content_type = mime_type
+        content_type = get_content_type(content, name)
 
         headers = {"Content-Type": content_type}
 
@@ -194,17 +177,25 @@ class SwiftclientStorage(Storage):
         if CUMULUS["USE_PYRAX"]:
             # TODO set headers
             if content_encoding == "gzip":
-                content = get_gzipped_contents(content)
+                content = gzip_content(content)
+            data = content.read()
+            print 'Saved: {0} ({1})'.format(get_digest(data), name)
             self.connection.store_object(container=self.container_name,
                                          obj_name=name,
-                                         data=content.read(),
+                                         data=data,
                                          content_type=content_type,
                                          content_encoding=content_encoding,
-                                         etag=None)
+                                         etag=get_digest(data),
+                                         return_none=True)
         else:
             # TODO gzipped content when using swift client
-            self.connection.put_object(self.container_name, name,
-                                       content, headers=headers)
+            data = content.read()
+            self.connection.put_object(container=self.container_name,
+                                       name=name,
+                                       contents=data,
+                                       etag=get_digest(data),
+                                       content_type=content_type,
+                                       headers=headers)
 
         return name
 
@@ -235,6 +226,14 @@ class SwiftclientStorage(Storage):
         Returns the total size, in bytes, of the file specified by name.
         """
         return self._get_object(name).total_bytes
+
+    def modified_time(self, name):
+        """
+        Returns the last modified time (as datetime object) of the file
+        specified by name.
+        """
+        mtime = self._get_object(name).last_modified
+        return datetime.strptime(mtime, '%Y-%m-%dT%H:%M:%S')
 
     def url(self, name):
         """
@@ -348,9 +347,7 @@ class SwiftclientStorageFile(File):
         if chunk_size < 0:
             meta, data = self.file.get(include_meta=True)
             if meta.get('content-encoding', None) == 'gzip':
-                zbuf = StringIO(data)
-                zfile = GzipFile(mode="rb", fileobj=zbuf)
-                data = zfile.read()
+                data = read_gzipped_content(data)
         else:
             data = self.file.get(chunk_size=chunk_size).next()
         self._pos += len(data)
