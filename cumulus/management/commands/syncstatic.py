@@ -13,7 +13,7 @@ from django.core.management.base import CommandError, NoArgsCommand
 
 
 from cumulus.settings import CUMULUS
-from cumulus.storage import sync_headers, get_gzipped_contents
+from cumulus.utils import read_gzipped_content
 
 
 class Command(NoArgsCommand):
@@ -226,7 +226,7 @@ class Command(NoArgsCommand):
             mime_type, encoding = mimetypes.guess_type(abspath)
             if mime_type in CUMULUS.get("GZIP_CONTENT_TYPES", []):
                 headers = {'Content-Encoding': 'gzip'}
-                contents = get_gzipped_contents(contents)
+                contents = read_gzipped_content(contents)
                 size = contents.size
 
             self.conn.put_object(container=self.container_name,
