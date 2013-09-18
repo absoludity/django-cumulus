@@ -3,7 +3,6 @@ import re
 import swiftclient
 from datetime import datetime
 
-from django.core.cache import cache
 from django.core.files.base import File
 from django.core.files.storage import Storage
 
@@ -417,58 +416,61 @@ class ThreadSafeMixin(object):
 
 class CachingMixin(object):
     """
-    A mixin to add some caching to the storage backend. Currently, only the
-    ``exists`` method is cached. Also, the in-memory bulk_cache is provided
-    mainly for use in the collectstatic command to get all of the metadata at
-    once.
+    A mixin to add some threadlocal caching to the storage backend.
     """
-    cache_timeout = CUMULUS["CACHE_TIMEOUT"]
 
-    def _enable_bulk_cache(self):
+    def _get_obj_cache(self):
         """
-        Enable the bulk cache, using the threadlocal if available. Retrieve the
-        objects to fill the cache.
+        Retrieve the object metadata cache using the threadlocal if it's there,
+        and hit the Cloud Files API for the container listing if the cache is
+        empty.
         """
-        objs = {obj.name: obj for obj in self.container.get_objects(full_listing=True)}
-
         if hasattr(self, '_local_cache'):
-            self._bulk_cache = self._local_cache.bulk_cache = objs
+            objects = getattr(self._local_cache, 'objects', None)
         else:
-            self._bulk_cache = objs
+            objects = getattr(self, '_cached_objects', None)
 
-    def _disable_bulk_cache(self):
+        if objects is None:
+            objects = {}
+            for obj in self.container.get_objects(full_listing=True):
+                objects[obj.name] = obj
+            self._obj_cache = objects
+
+        return objects
+
+    def _set_obj_cache(self, objs):
         """
-        Disable the bulk cache, using the threadlocal if available.
+        Save the cache using the threadlocal from ThreadSafeMixin if available.
         """
         if hasattr(self, '_local_cache'):
-            del self._local_cache.bulk_cache
-        del self._bulk_cache
+            self._local_cache.objects = objs
+        else:
+            self._cached_objects = objs
 
-    def _bulk_cache_is_enabled(self):
+    def _del_obj_cache(self, objs):
         """
-        Check whether the bulk cache is enabled, using the threadlocal if
-        available.
+        Delete the cache so that it will be regenerated next time it is
+        requested.
         """
-        if hasattr(self, '_bulk_cache'):
-            return True
+        if hasattr(self, '_local_cache'):
+            del self._local_cache.objects
+        else:
+            del self._cached_objects
+
+    _obj_cache = property(_get_obj_cache, _set_obj_cache, _del_obj_cache)
 
     def _get_object(self, name):
         """
-        Helper function to retrieve the requested Object. If bulk_cache is
-        True, check for the object in the bulk metadata cache.
+        Use the object cache to retrieve the requested object.
         """
         if self.exists(name):
-            if self._bulk_cache_is_enabled():
-                return self._bulk_cache[name]
-            return self.container.get_object(name)
+            return self._obj_cache[name]
 
     def exists(self, name):
         """
-        Cache the results of get_object_names.
+        Check for the object in the object cache.
         """
-        if self._bulk_cache_is_enabled():
-            return name in self._bulk_cache
-        return name in self.container.get_object_names()
+        return name in self._obj_cache
 
     """
     Invalidation
@@ -476,24 +478,21 @@ class CachingMixin(object):
 
     def _save(self, name, content):
         """
-        A save refreshes the bulk_cache.
+        A save invalidates the object cache,
         """
-        if self._bulk_cache_is_enabled():
-            self._enable_bulk_cache()
+        del self._obj_cache
         return super(CachingMixin, self)._save(name, content)
 
     def delete(self, name):
         """
-        A delete refreshes the bulk_cache.
+        A delete invalidates the object cache.
         """
-        if self._bulk_cache_is_enabled():
-            self._enable_bulk_cache()
+        del self._obj_cache
         return super(CachingMixin, self).delete(name)
 
     def _set_container(self, container):
         """
-        A container switch invalidates the bulk_cache.
+        A container switch invalidates the object cache.
         """
-        if self._bulk_cache_is_enabled():
-            self._enable_bulk_cache()
+        del self._obj_cache
         return super(CachingMixin, self)._set_container(container)
