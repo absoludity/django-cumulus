@@ -447,7 +447,7 @@ class CachingMixin(object):
         else:
             self._cached_objects = objs
 
-    def _del_obj_cache(self, objs):
+    def _del_obj_cache(self):
         """
         Delete the cache so that it will be regenerated next time it is
         requested.
