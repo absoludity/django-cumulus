@@ -453,9 +453,11 @@ class CachingMixin(object):
         requested.
         """
         if hasattr(self, '_local_cache'):
-            del self._local_cache.objects
+            if hasattr(self._local_cache, 'objects'):
+                del self._local_cache.objects
         else:
-            del self._cached_objects
+            if hasattr(self, '_cached_objects'):
+                del self._cached_objects
 
     _obj_cache = property(_get_obj_cache, _set_obj_cache, _del_obj_cache)
 
