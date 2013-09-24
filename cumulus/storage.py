@@ -478,23 +478,26 @@ class CachingMixin(object):
     Invalidation
     """
 
-    def _save(self, name, content):
+    def _save(self, name, content, keep_cache=False):
         """
         A save invalidates the object cache,
         """
-        del self._obj_cache
+        if not keep_cache:
+            del self._obj_cache
         return super(CachingMixin, self)._save(name, content)
 
-    def delete(self, name):
+    def delete(self, name, keep_cache=False):
         """
         A delete invalidates the object cache.
         """
-        del self._obj_cache
+        if not keep_cache:
+            del self._obj_cache
         return super(CachingMixin, self).delete(name)
 
-    def _set_container(self, container):
+    def _set_container(self, container, keep_cache=False):
         """
         A container switch invalidates the object cache.
         """
-        del self._obj_cache
+        if not keep_cache:
+            del self._obj_cache
         return super(CachingMixin, self)._set_container(container)
