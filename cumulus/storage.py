@@ -442,11 +442,11 @@ class CachingMixin(object):
         and hit the Cloud Files API for the container listing if the cache is
         empty.
         """
-        if not hasattr(self.local_cache, 'objects'):
-            self.local_cache.objects = {}
+        if not hasattr(self._local_cache, 'objects'):
+            self._local_cache.objects = {}
             for obj in self.container.get_objects(full_listing=True):
                 self._local_cache.objects[obj.name] = obj
-        return self.local_cache.objects
+        return self._local_cache.objects
 
     def _set_obj_cache(self, objs):
         self._local_cache.objects = objs
