@@ -426,17 +426,16 @@ class CachingMixin(object):
         empty.
         """
         if hasattr(self, '_local_cache'):
-            objects = getattr(self._local_cache, 'objects', None)
+            self._obj_cache = getattr(self._local_cache, 'objects', None)
         else:
-            objects = getattr(self, '_cached_objects', None)
+            self._obj_cache = getattr(self, '_cached_objects', None)
 
-        if objects is None:
-            objects = {}
+        if self._obj_cache is None:
+            self._obj_cache = {}
             for obj in self.container.get_objects(full_listing=True):
-                objects[obj.name] = obj
-            self._obj_cache = objects
+                self._obj_cache[obj.name] = obj
 
-        return objects
+        return self._obj_cache
 
     def _set_obj_cache(self, objs):
         """
@@ -477,35 +476,21 @@ class CachingMixin(object):
     """
     Invalidation
     """
-
-    def _save(self, name, content, keep_cache=False):
+    def _save(self, name, content):
         """
-        A save invalidates the object cache,
+        Adjust the object cache to add the saved object.
         """
-        #if not keep_cache:
-        #    import ipdb; ipdb.set_trace()
-        #    del self._obj_cache
         available_name = super(CachingMixin, self)._save(name, content)
-        objects = self._obj_cache
-        objects[available_name] = self.container.get_object(name)
-        self._obj_cache = objects
+        self._obj_cache[available_name] = self.container.get_object(name)
         return available_name
 
-
-    def delete(self, name, keep_cache=False):
+    def delete(self, name):
         """
-        A delete invalidates the object cache.
+        Adjust the object cache to remove the deleted object.
         """
-        #if not keep_cache:
-        #    del self._obj_cache
-        objects = self._obj_cache
-        try:
-            del objects[name]
-            self._obj_cache = objects
+        if name in self._obj_cache:
+            del self._obj_cache[name]
             return super(CachingMixin, self).delete(name)
-        except KeyError as err:
-            # Nothing to do because the file is not in the container
-            pass
 
     def _set_container(self, container, keep_cache=False):
         """
