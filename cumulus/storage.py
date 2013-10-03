@@ -482,17 +482,30 @@ class CachingMixin(object):
         """
         A save invalidates the object cache,
         """
-        if not keep_cache:
-            del self._obj_cache
-        return super(CachingMixin, self)._save(name, content)
+        #if not keep_cache:
+        #    import ipdb; ipdb.set_trace()
+        #    del self._obj_cache
+        available_name = super(CachingMixin, self)._save(name, content)
+        objects = self._obj_cache
+        objects[available_name] = self.container.get_object(name)
+        self._obj_cache = objects
+        return available_name
+
 
     def delete(self, name, keep_cache=False):
         """
         A delete invalidates the object cache.
         """
-        if not keep_cache:
-            del self._obj_cache
-        return super(CachingMixin, self).delete(name)
+        #if not keep_cache:
+        #    del self._obj_cache
+        objects = self._obj_cache
+        try:
+            del objects[name]
+            self._obj_cache = objects
+            return super(CachingMixin, self).delete(name)
+        except KeyError as err:
+            # Nothing to do because the file is not in the container
+            pass
 
     def _set_container(self, container, keep_cache=False):
         """
