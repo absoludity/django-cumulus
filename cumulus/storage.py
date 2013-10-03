@@ -414,10 +414,27 @@ class ThreadSafeMixin(object):
     container = property(_get_container, SwiftclientStorage._set_container)
 
 
+class AttrDict(dict):
+    """
+    A dict object that allows you to access keys and values via attributes.
+    """
+    def __init__(self, *args, **kwargs):
+        super(AttrDict, self).__init__(*args, **kwargs)
+        self.__dict__ = self
+
+
 class CachingMixin(object):
     """
     A mixin to add some threadlocal caching to the storage backend.
     """
+    def __init__(self, *args, **kwargs):
+        """
+        If the ThreadSafeMixin is not used, emulate the threadlocal cache with
+        an AttrDict instance.
+        """
+        super(CachingMixin, self).__init__(*args, **kwargs)
+        if not hasattr(self, '_local_cache'):
+            self._local_cache = AttrDict()
 
     def _get_obj_cache(self):
         """
@@ -425,38 +442,22 @@ class CachingMixin(object):
         and hit the Cloud Files API for the container listing if the cache is
         empty.
         """
-        if hasattr(self, '_local_cache'):
-            self._obj_cache = getattr(self._local_cache, 'objects', None)
-        else:
-            self._obj_cache = getattr(self, '_cached_objects', None)
-
-        if self._obj_cache is None:
-            self._obj_cache = {}
+        if not hasattr(self.local_cache, 'objects'):
+            self.local_cache.objects = {}
             for obj in self.container.get_objects(full_listing=True):
-                self._obj_cache[obj.name] = obj
-
-        return self._obj_cache
+                self._local_cache.objects[obj.name] = obj
+        return self.local_cache.objects
 
     def _set_obj_cache(self, objs):
-        """
-        Save the cache using the threadlocal from ThreadSafeMixin if available.
-        """
-        if hasattr(self, '_local_cache'):
-            self._local_cache.objects = objs
-        else:
-            self._cached_objects = objs
+        self._local_cache.objects = objs
 
     def _del_obj_cache(self):
         """
         Delete the cache so that it will be regenerated next time it is
         requested.
         """
-        if hasattr(self, '_local_cache'):
-            if hasattr(self._local_cache, 'objects'):
-                del self._local_cache.objects
-        else:
-            if hasattr(self, '_cached_objects'):
-                del self._cached_objects
+        if hasattr(self._local_cache, 'objects'):
+            del self._local_cache.objects
 
     _obj_cache = property(_get_obj_cache, _set_obj_cache, _del_obj_cache)
 
