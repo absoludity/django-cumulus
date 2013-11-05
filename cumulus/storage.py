@@ -150,8 +150,11 @@ class SwiftclientStorage(Storage):
         """
         Helper function to retrieve the requested Object.
         """
-        if self.exists(name):
+        try:
             return self.container.get_object(name)
+        except pyrax.exceptions.NoSuchObject as err:
+            pass
+
 
     def _open(self, name, mode="rb"):
         """
@@ -218,7 +221,7 @@ class SwiftclientStorage(Storage):
         exists in the storage system, or False if the name is
         available for a new file.
         """
-        return name in self.container.get_object_names()
+        return bool(self._get_object(name))
 
     def size(self, name):
         """
