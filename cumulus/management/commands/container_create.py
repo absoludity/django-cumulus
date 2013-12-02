@@ -5,6 +5,7 @@ import swiftclient
 from django.core.management.base import BaseCommand, CommandError
 
 from cumulus.settings import CUMULUS
+from cumulus.utils import ensure_pyrax_settings
 
 
 def cdn_enabled_for_container(container):
@@ -54,8 +55,7 @@ class Command(BaseCommand):
             headers = {"X-Container-Read": ".r:*"}
             self.conn.post_container(container_name, headers=headers)
             if CUMULUS["USE_PYRAX"]:
-                if CUMULUS["PYRAX_IDENTITY_TYPE"]:
-                    pyrax.set_setting("identity_type", CUMULUS["PYRAX_IDENTITY_TYPE"])
+                ensure_pyrax_settings()
                 pyrax.set_credentials(CUMULUS["USERNAME"], CUMULUS["API_KEY"])
                 public = not CUMULUS["SERVICENET"]
                 connection = pyrax.connect_to_cloudfiles(region=CUMULUS["REGION"],

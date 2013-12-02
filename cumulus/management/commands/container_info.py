@@ -5,6 +5,7 @@ import swiftclient
 from django.core.management.base import BaseCommand
 
 from cumulus.settings import CUMULUS
+from cumulus.utils import ensure_pyrax_settings
 
 
 class Command(BaseCommand):
@@ -60,8 +61,7 @@ class Command(BaseCommand):
                 "uri": "{}/{}".format(self.conn.url, container_name),
             }
             if CUMULUS["USE_PYRAX"]:
-                if CUMULUS["PYRAX_IDENTITY_TYPE"]:
-                    pyrax.set_setting("identity_type", CUMULUS["PYRAX_IDENTITY_TYPE"])
+                ensure_pyrax_settings()
                 pyrax.set_credentials(CUMULUS["USERNAME"], CUMULUS["API_KEY"])
                 public = not CUMULUS["SERVICENET"]
                 connection = pyrax.connect_to_cloudfiles(region=CUMULUS["REGION"],

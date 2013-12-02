@@ -1,6 +1,7 @@
 import pyrax
 
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.files.storage import DefaultStorage
 from django.core.management import call_command
 from django.test import TestCase
 
@@ -9,7 +10,7 @@ from cumulus.storage import SwiftclientStorage
 from cumulus.tests.models import Thing
 
 
-openstack_storage = SwiftclientStorage()
+openstack_storage = DefaultStorage()
 
 
 class CumulusTests(TestCase):
