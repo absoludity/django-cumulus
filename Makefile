@@ -20,7 +20,7 @@ virtualenv-dev:
 test:
 	@DJANGO_SETTINGS_MODULE=$(TEST_SETTINGS) \
 		PYTHONPATH=$(PWD) \
-		$(NOSETESTS) --ignore-files=".*integration.*"
+		$(NOSETESTS) cumulus
 
 
 integration-dependencies: dev-dependencies
@@ -35,8 +35,8 @@ integration-dependencies: dev-dependencies
 integration-test:
 	@DJANGO_SETTINGS_MODULE=$(INTEGRATION_SETTINGS) \
 		PYTHONPATH=$(PWD) \
-		$(PWD)/virtualenv-dev/bin/nosetests --quiet --pdb \
-		cumulus.tests.test_integration
+		$(PWD)/virtualenv-dev/bin/nosetests --quiet \
+		example
 
 
 .PHONY: dependencies
