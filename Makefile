@@ -1,5 +1,5 @@
 PWD := $(shell pwd)
-TEST_SETTINGS := example.settings.test
+TEST_SETTINGS := example.settings.common
 
 
 install-dependencies: dev-virtualenv
@@ -11,7 +11,9 @@ dev-virtualenv:
 
 
 test:
-	DJANGO_SETTINGS_MODULE=$(TEST_SETTINGS) $(PWD)/dev-virtualenv/bin/nosetests cumulus.tests.test_utils
+	@DJANGO_SETTINGS_MODULE=$(TEST_SETTINGS) \
+		$(PWD)/dev-virtualenv/bin/nosetests \
+		--ignore-files=".*integration.*"
 
 
 .PHONY: dependencies

@@ -1,12 +1,22 @@
 import unittest
 import pyrax
 
-from mock import patch
+from mock import (
+    call,
+    patch,
+)
 
 from cumulus.utils import ensure_pyrax_settings
 
 
 class EnsurePyraxSettingsTestCase(unittest.TestCase):
+
+    def setUp(self):
+        """The pyrax module keeps state - we don't want to affect state."""
+        super(EnsurePyraxSettingsTestCase, self).setUp()
+        patcher = patch('cumulus.utils.pyrax')
+        self.addCleanup(patcher.stop)
+        self.mock_pyrax = patcher.start()
 
     def patch_cumulus_settings(self, **kwargs):
         patcher = patch.dict('cumulus.utils.CUMULUS', **kwargs)
@@ -20,9 +30,7 @@ class EnsurePyraxSettingsTestCase(unittest.TestCase):
 
         ensure_pyrax_settings()
 
-        self.assertIsNone(pyrax.get_setting('identity_type'))
-        self.assertIsNone(pyrax.get_setting('auth_endpoint'))
-        self.assertIsNone(pyrax.get_setting('tenant_id'))
+        self.assertEqual(0, self.mock_pyrax.set_setting.call_count)
 
     def test_sets_pyrax_settings(self):
         self.patch_cumulus_settings(PYRAX_IDENTITY_TYPE='keystone',
@@ -31,7 +39,10 @@ class EnsurePyraxSettingsTestCase(unittest.TestCase):
 
         ensure_pyrax_settings()
 
-        self.assertEqual('keystone', pyrax.get_setting('identity_type'))
-        self.assertEqual('http://example.com',
-                         pyrax.get_setting('auth_endpoint'))
-        self.assertEqual('abc123', pyrax.get_setting('tenant_id'))
+        expected_calls = [
+            call('identity_type', 'keystone'),
+            call('auth_endpoint', 'http://example.com'),
+            call('tenant_id', 'abc123'),
+        ]
+        self.mock_pyrax.set_setting.assert_has_calls(
+            expected_calls, any_order=True)
