@@ -1,8 +1,8 @@
 from common import *  # noqa
 
 INSTALLED_APPS += (
-    'cumulus.tests',
     'example.photos',
+    'example.things',
 )
 
 DATABASES = {
