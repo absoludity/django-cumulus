@@ -9,6 +9,7 @@ from django.core.files.base import File, ContentFile
 from django.core.files.storage import Storage
 
 from cumulus.settings import CUMULUS
+from cumulus.utils import ensure_pyrax_settings
 
 
 HEADER_PATTERNS = tuple((re.compile(p), h) for p, h in CUMULUS.get("HEADERS", {}))
@@ -79,12 +80,7 @@ class SwiftclientStorage(Storage):
             self.connection_kwargs = connection_kwargs
         # connect
         if CUMULUS["USE_PYRAX"]:
-            if CUMULUS["PYRAX_IDENTITY_TYPE"]:
-                pyrax.set_setting("identity_type", CUMULUS["PYRAX_IDENTITY_TYPE"])
-            if CUMULUS["AUTH_URL"]:
-                pyrax.set_setting("auth_endpoint", CUMULUS["AUTH_URL"])
-            if CUMULUS["AUTH_TENANT_ID"]:
-                pyrax.set_setting("tenant_id", CUMULUS["AUTH_TENANT_ID"])
+            ensure_pyrax_settings()
 
             pyrax.set_credentials(self.username, self.api_key)
 

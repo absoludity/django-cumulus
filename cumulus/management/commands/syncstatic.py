@@ -14,6 +14,7 @@ from django.core.management.base import CommandError, NoArgsCommand
 
 from cumulus.settings import CUMULUS
 from cumulus.storage import get_gzipped_contents
+from cumulus.utils import ensure_pyrax_settings
 
 
 class Command(NoArgsCommand):
@@ -103,8 +104,7 @@ class Command(NoArgsCommand):
                 raise
 
         if CUMULUS["USE_PYRAX"]:
-            if CUMULUS["PYRAX_IDENTITY_TYPE"]:
-                pyrax.set_setting("identity_type", CUMULUS["PYRAX_IDENTITY_TYPE"])
+            ensure_pyrax_settings()
             public = not CUMULUS["SERVICENET"]
             pyrax.set_credentials(CUMULUS["USERNAME"], CUMULUS["API_KEY"])
             connection = pyrax.connect_to_cloudfiles(region=CUMULUS["REGION"],

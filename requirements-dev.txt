@@ -1,0 +1,4 @@
+pyrax==1.6
+django==1.6
+nose
+mock
