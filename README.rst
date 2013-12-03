@@ -20,15 +20,12 @@ To run the unit-tests locally, just run `make` which will create
 a virtualenv and then run the test target.
 
 To run the integration tests you'll need to first install
-some extra dependencies in the virtualenv:
+some extra dependencies in the virtualenv::
 
-```
  $ make integration-dependencies
-```
 
-Then export your credentials, for example:
+Then export your credentials, for example::
 
-```
  $ export OS_REGION_NAME=RegionOne \
           OS_TENANT_ID=4dce19fd28fb4efc985d63b6d03b46f3 \
           OS_PASSWORD=******** \
@@ -36,10 +33,7 @@ Then export your credentials, for example:
           OS_USERNAME=username \
           OS_TENANT_NAME=tenantname \
           PYRAX_IDENTITY_TYPE=keystone
-```
 
-then
+then::
 
-```
  $ make integration-tests
-```
