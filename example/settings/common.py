@@ -151,13 +151,14 @@ LOGGING = {
 }
 
 DEFAULT_FILE_STORAGE = 'cumulus.storage.SwiftclientStorage'
-#STATICFILES_STORAGE = 'cumulus.storage.SwiftclientStaticStorage'
 
-# these are the default cumulus settings
 CUMULUS = {
-    'API_KEY': None,
-    'AUTH_URL': 'us_authurl',
-    'REGION': 'DFW',
+    'API_KEY': os.environ.get('OS_PASSWORD'),
+    'AUTH_URL': os.environ.get('OS_AUTH_URL', 'us_authurl'),
+    'AUTH_TENANT_ID': os.environ.get('OS_TENANT_ID'),
+    'AUTH_TENANT_NAME': os.environ.get('OS_TENANT_NAME'),
+    'AUTH_VERSION': '2.0',
+    'REGION': os.environ.get('OS_REGION_NAME', 'DFW'),
     'CNAMES': None,
     'CONTAINER': 'cumulus-content-tests',
     'CONTAINER_URI': None,
@@ -167,12 +168,13 @@ CUMULUS = {
     'TIMEOUT': 5,
     'TTL': 600,
     'USE_SSL': False,
-    'USERNAME': None,
+    'USERNAME': os.environ.get('OS_USERNAME'),
     'INCLUDE_LIST': [],
     'EXCLUDE_LIST': [],
     'HEADERS': {},
     'GZIP_CONTENT_TYPES': [],
     'USE_PYRAX': True,
+    'PYRAX_IDENTITY_TYPE': os.environ.get('PYRAX_IDENTITY_TYPE', 'keystone'),
 }
 
 try:

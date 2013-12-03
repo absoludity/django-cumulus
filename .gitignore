@@ -13,6 +13,6 @@ coverage/
 dist/
 local_settings.py
 static/
-dev-virtualenv
+virtualenv-dev
 
 .DS_Store

@@ -22,13 +22,11 @@ class CumulusTests(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        # The content container is created by storage.py during the tests syncdb
-        call_command("container_create", CUMULUS["STATIC_CONTAINER"])
+        call_command("container_create", CUMULUS["CONTAINER"])
 
     @classmethod
     def tearDownClass(cls):
         call_command("container_delete", CUMULUS["CONTAINER"], is_yes=True)
-        call_command("container_delete", CUMULUS["STATIC_CONTAINER"], is_yes=True)
 
     def setUp(self):
         "Set up tiny files to test with."
@@ -166,8 +164,7 @@ class GzippedContentTests(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        # The content container is created by storage.py during the tests syncdb
-        pass
+        call_command("container_create", CUMULUS["CONTAINER"])
 
     @classmethod
     def tearDownClass(cls):
