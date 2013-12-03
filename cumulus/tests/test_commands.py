@@ -4,9 +4,10 @@ import pyrax
 from django.core.management import call_command
 
 from mock import patch
+from cumulus.tests.helpers import PyraxTestCase
 
 
-class ContainerCreateTestCase(unittest.TestCase):
+class ContainerCreateTestCase(PyraxTestCase):
 
     def setUp(self):
         super(ContainerCreateTestCase, self).setUp()
@@ -68,6 +69,7 @@ class ContainerCreateTestCase(unittest.TestCase):
         self.assertEqual(0, self.connection.post_container.call_count)
 
     def test_pyrax_settings(self):
+        """When pyrax is used, the pyrax settings are initialised."""
         self.patch_cumulus_settings(AUTH_URL='http://example.com/v1/auth',
                                     USE_PYRAX=True,
                                     PYRAX_IDENTITY_TYPE='keystone')
