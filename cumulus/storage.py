@@ -3,6 +3,7 @@ import pyrax
 import re
 import swiftclient
 from gzip import GzipFile
+from pyrax.exceptions import NoSuchObject
 from StringIO import StringIO
 
 from django.core.files.base import File, ContentFile
@@ -162,10 +163,10 @@ class SwiftclientStorage(Storage):
         """
         Helper function to retrieve the requested Object.
         """
-        if name not in self.container.get_object_names():
-            return False
-        else:
+        try:
             return self.container.get_object(name)
+        except NoSuchObject:
+            pass
 
     def _open(self, name, mode="rb"):
         """
